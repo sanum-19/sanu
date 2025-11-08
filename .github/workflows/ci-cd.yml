@@ -23,7 +23,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./sanunet/app
-          file: ./sanunet/app/Dockerfile
+          context: ./app
+          file: ./app/Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/sanunet-app:latest
