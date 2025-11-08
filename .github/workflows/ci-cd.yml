@@ -5,6 +5,7 @@ on:
     branches: [ "main" ]
 
 jobs:
+  # 1️⃣ Build & push Docker image
   build_and_push:
     runs-on: ubuntu-latest
     steps:
@@ -23,7 +24,40 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./app
+          context: ./app          # points to your app folder
           file: ./app/Dockerfile
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/sanunet-app:latest
+
+  # 2️⃣ Deploy to EC2
+  deploy:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_PUBLIC_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            # Enable Docker if not running
+            sudo systemctl enable --now docker || true
+
+            # Pull latest image
+            docker pull ${{ secrets.DOCKER_USERNAME }}/sanunet-app:latest
+
+            # Stop & remove old container if exists
+            docker rm -f sanunet-web || true
+
+            # Run new container
+            docker run -d \
+              --restart unless-stopped \
+              -p 80:80 \
+              --name sanunet-web \
+              ${{ secrets.DOCKER_USERNAME }}/sanunet-app:latest
+
+            # Quick health check
+            sleep 5
+            curl -I http://localhost || true
